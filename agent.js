@@ -14,62 +14,8 @@ async function callAgent() {
     content: "how much money i have spent?",
   });
 
-  const completion = await groq.chat.completions.create({
-    messages: messages,
-    model: "llama-3.3-70b-versatile",
-    tools: [
-      {
-        type: "function",
-        function: {
-          name: "getTotalExpense",
-          description:
-            "Calculates the total expense within a specified date range.",
-          parameters: {
-            type: "object",
-            properties: {
-              from: {
-                type: "string",
-                description: "Start date of the expense range",
-              },
-              to: {
-                type: "string",
-                description: "End date of the expense range",
-              },
-            },
-            required: ["from", "to"],
-          },
-        },
-      },
-    ],
-  });
-
-  console.log(JSON.stringify(completion.choices[0], null, 2));
-
-  messages.push(completion.choices[0].message)
-
-  const toolCalls = completion.choices[0].message.tool_calls; 
-  if (!toolCalls) {
-    console.log(`assistant: ${completion.choices[0].message.content}`);
-    return;
-  }
-
-  for (const tool of toolCalls) {
-    const functionName = tool.function.name;
-    const functionArgs = tool.function.arguments;
-
-    let result = "";
-    if (functionName === "getTotalExpense") {
-      result = getTotalExpense(JSON.parse(functionArgs));
-      console.log("🚀 ~ callAgent ~ result:", result)
-    }
-
-    messages.push({
-      role: "tool",
-      content: result,
-      tool_call_id: tool.id,
-    })
-
-    const completion2 = await groq.chat.completions.create({
+  while(true){
+    const completion = await groq.chat.completions.create({
       messages: messages,
       model: "llama-3.3-70b-versatile",
       tools: [
@@ -97,14 +43,35 @@ async function callAgent() {
         },
       ],
     });
-    console.log("🚀 ~ callAgent ~ completion2:", completion2)
 
-    console.log(JSON.stringify("completion2"));
-    console.log(JSON.stringify(completion2.choices[0], null, 2));
+    messages.push(completion.choices[0].message)
+
+    const toolCalls = completion.choices[0].message.tool_calls; 
+    if (!toolCalls) {
+      console.log(`assistant: ${completion.choices[0].message.content}`);
+      break;
+    }
+
+    for (const tool of toolCalls) {
+      const functionName = tool.function.name;
+      const functionArgs = tool.function.arguments;
+
+      let result = "";
+      if (functionName === "getTotalExpense") {
+        result = getTotalExpense(JSON.parse(functionArgs));
+      }
+
+      messages.push({
+        role: "tool",
+        content: result,
+        tool_call_id: tool.id,
+      })
+
+    }
+    console.log("-----------");
+    console.log("Messages",messages)
   }
 
-  console.log("-----------");
-  console.log("Messages",messages)
 }
 callAgent();
 
